@@ -4,6 +4,8 @@ import argparse
 import os
 import torch
 
+import json
+
 import posenet
 
 
@@ -26,7 +28,7 @@ def main():
             os.makedirs(args.output_dir)
 
     filenames = [
-        f.path for f in os.scandir(args.image_dir) if f.is_file() and f.path.endswith(('.png', '.jpg'))]
+        f.path for f in os.scandir(args.image_dir) if f.is_file() and f.path.endswith(('.png', '.jpg', '.jpeg'))]
 
     start = time.time()
     for f in filenames:
@@ -61,14 +63,35 @@ def main():
             datos_pose_imagen = dict()
             datos_pose_imagen['image'] = f
 
-            puntos = list()
             print("Results for image: %s" % datos_pose_imagen['image'])
             for pi in range(len(pose_scores)):
                 if pose_scores[pi] == 0.:
                     break
                 print('Pose #%d, score = %f' % (pi, pose_scores[pi]))
+
+                puntos = dict()
+                listado_puntos_pose = list()
                 for ki, (s, coordenadas) in enumerate(zip(keypoint_scores[pi, :], keypoint_coords[pi, :, :])):
-                    print('Keypoint %s, score = %f, coord = %s' % (posenet.PART_NAMES[ki], s, coordenadas))
+                    key_point_pose = dict()
+                    key_point_pose["part"] = posenet.PART_NAMES[ki]
+                    key_point_pose["score"] = s
+
+                    position = dict()
+                    position['x'] = coordenadas[0]
+                    position['y'] = coordenadas[1]
+                    key_point_pose["position"] = position
+
+                    listado_puntos_pose.append(key_point_pose)
+                    #print('Keypoint %s, score = %f, coord = %s' % (posenet.PART_NAMES[ki], s, coordenadas))
+                puntos["keypoints"] = listado_puntos_pose
+                puntos["score"] = pose_scores[pi]
+
+                datos_pose_imagen[str(pi)] = puntos
+
+                nameFile = "." + os.path.join(args.output_dir, os.path.relpath(f, args.image_dir)).split(".")[1] + ".json"
+                with open(nameFile, 'w', encoding='utf-8') as outfile:
+                    json.dump(datos_pose_imagen, outfile, ensure_ascii=False, indent=4)
+
 
     print('Average FPS:', len(filenames) / (time.time() - start))
 

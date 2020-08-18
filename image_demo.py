@@ -18,7 +18,7 @@ args = parser.parse_args()
 
 def main():
     model = posenet.load_model(args.model)
-    model = model.cuda()
+    #model = model.cuda()
     output_stride = model.output_stride
 
     if args.output_dir:
@@ -34,7 +34,7 @@ def main():
             f, scale_factor=args.scale_factor, output_stride=output_stride)
 
         with torch.no_grad():
-            input_image = torch.Tensor(input_image).cuda()
+            input_image = torch.Tensor(input_image)#.cuda()
 
             heatmaps_result, offsets_result, displacement_fwd_result, displacement_bwd_result = model(input_image)
 
@@ -45,26 +45,30 @@ def main():
                 displacement_bwd_result.squeeze(0),
                 output_stride=output_stride,
                 max_pose_detections=10,
-                min_pose_score=0.25)
+                min_pose_score=0.20)
 
         keypoint_coords *= output_scale
 
         if args.output_dir:
             draw_image = posenet.draw_skel_and_kp(
                 draw_image, pose_scores, keypoint_scores, keypoint_coords,
-                min_pose_score=0.25, min_part_score=0.25)
+                min_pose_score=0.20, min_part_score=0.20)
 
             cv2.imwrite(os.path.join(args.output_dir, os.path.relpath(f, args.image_dir)), draw_image)
 
         if not args.notxt:
             print()
-            print("Results for image: %s" % f)
+            datos_pose_imagen = dict()
+            datos_pose_imagen['image'] = f
+
+            puntos = list()
+            print("Results for image: %s" % datos_pose_imagen['image'])
             for pi in range(len(pose_scores)):
                 if pose_scores[pi] == 0.:
                     break
                 print('Pose #%d, score = %f' % (pi, pose_scores[pi]))
-                for ki, (s, c) in enumerate(zip(keypoint_scores[pi, :], keypoint_coords[pi, :, :])):
-                    print('Keypoint %s, score = %f, coord = %s' % (posenet.PART_NAMES[ki], s, c))
+                for ki, (s, coordenadas) in enumerate(zip(keypoint_scores[pi, :], keypoint_coords[pi, :, :])):
+                    print('Keypoint %s, score = %f, coord = %s' % (posenet.PART_NAMES[ki], s, coordenadas))
 
     print('Average FPS:', len(filenames) / (time.time() - start))
 
